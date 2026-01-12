@@ -21,18 +21,20 @@ import { QUICK_VIDEO_SUGGESTIONS } from '../data/constant'
 import axios from 'axios'
 import { toast } from 'sonner'
 import { SignInButton, useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/dist/client/components/navigation';
 
 const Hero = () => {
     const [userInput, setUserInput] = useState('');
     const [type, setType] = useState('full-course');
     const [loading, setLoading] = useState(false);
     const { user } = useUser();
+    const router = useRouter();
 
     const GenerateCourseLayout = async () => {
+        const courseId = crypto.randomUUID();
         try {
             setLoading(true);
             toast.loading("Generating Course Layout...");
-            const courseId = crypto.randomUUID();
 
             
             const result = await axios.post('/api/generate-course-layout', {
@@ -47,7 +49,7 @@ const Hero = () => {
             
             // navigate to course editor page
             
-
+        router.push('/course/' + courseId);
 
             
         } catch (error: any) {
