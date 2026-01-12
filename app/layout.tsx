@@ -6,6 +6,7 @@ import {
 
 } from '@clerk/nextjs'
 import Provider from "./provider";
+import { Toaster } from "@/components/ui/sonner";
 const AppFont=DM_Sans({
   subsets:['latin']
 
@@ -29,6 +30,7 @@ export default function RootLayout({
       >
         <Provider>
         {children}
+        <Toaster position="top-center" richColors />
         </Provider>
       </body>
     </html>
