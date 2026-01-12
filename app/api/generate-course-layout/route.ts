@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     console.log('=== Generate Course Layout API Called ===');
     
-    const { userInput, type } = await req.json();
+    const { userInput, type,  courseId } = await req.json();
     console.log('User Input:', userInput);
     console.log('Type:', type);
 
@@ -39,21 +39,20 @@ export async function POST(req: NextRequest) {
 
     console.log('Parsing JSON...');
     const JSONResult = JSON.parse(rawResult);
+    
 
-    // Generate a unique courseId from the AI result or create one
-    const courseId = JSONResult.courseId || `course-${Date.now()}`;
-
-    // ✅ SAVE TO DB
+    //  SAVE TO DB
     console.log('Saving to database...');
     const savedCourse = await db.insert(coursesTable).values({
       courseId: courseId,
       userId: user.primaryEmailAddress?.emailAddress as string,
+      courseName: JSONResult.courseName,
       userInput: userInput,
       type: type,
-      courseLayout: JSONResult, // ✅ Pass object directly (not stringified)
+      courseLayout: JSONResult,
     }).returning();
 
-    console.log('✅ Course saved to database:', savedCourse[0]);
+    console.log('Course saved to database:', savedCourse[0]);
 
     return NextResponse.json({
       ...JSONResult,
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("❌ generate-course-layout error:", error);
+    console.error(" generate-course-layout error:", error);
     console.error("Error details:", error.message);
     if (error.stack) {
       console.error("Stack:", error.stack);

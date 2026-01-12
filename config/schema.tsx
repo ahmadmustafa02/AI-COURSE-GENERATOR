@@ -13,9 +13,10 @@ export const coursesTable = pgTable("courses", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: varchar({ length: 255 }).notNull().references(() => usersTable.email),
   courseId: varchar({ length: 255 }).notNull().unique(),
+  courseName: varchar({ length: 255 }).notNull(),
   userInput: varchar({ length: 1024 }).notNull(),
   type: varchar({ length: 255 }).notNull(),
-    courseLayout: json(),
+  courseLayout: json(),
   createdAt: timestamp().defaultNow(),
 
 });
