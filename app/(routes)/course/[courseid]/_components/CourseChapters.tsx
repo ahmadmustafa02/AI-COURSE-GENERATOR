@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Course } from '@/type/CourseType';
 import { DotIcon } from 'lucide-react';
 import React from 'react'
-import { Dot } from 'recharts/types/shape/Dot';
 import ChapterVideo from './ChapterVideo';
 import { Player } from '@remotion/player';
 
@@ -21,8 +20,8 @@ const CourseChapters = ({course}: Props) => {
 
       </div>
 
-      <div>
-        {course?.courseLayout.chapters.map((chapter, index) => (
+      <div className='mt-10'>
+        {course?.courseLayout?.chapters.map((chapter, index) => (
         <Card className='mv-5' key={index}>
           <CardHeader>
             <div className='flex gap-3 items-center'>
