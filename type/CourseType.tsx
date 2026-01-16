@@ -37,5 +37,11 @@ export type chapterContentSlide={
     narration:{fullText:string};
     html:string;
     revelData:string[];
-
+    captions?: {
+        chunks: Array<{
+            text: string;
+            timestamp: [number, number];
+        }>;
+        fullText?: string;
+    };
 }

@@ -7,6 +7,8 @@ import { useParams } from 'next/navigation';
 import { Course } from '@/type/CourseType';
 import CourseChapters from './_components/CourseChapters';
 import { toast } from 'sonner';
+import {getAudioData} from '@remotion/media-utils'
+
 
 const CoursePreview = () => {
 
@@ -71,16 +73,11 @@ const GetVideoContent = async (courseData: Course) => {
   const mainToast = toast.loading("Generating Video Content Using AI...");
   
   try {
-    // Process all chapters (or change to .slice(0, 1) for just first chapter)
+    // Process all chapters
     const chapters = courseData.courseLayout.chapters;
     
     for (let i = 0; i < chapters.length; i++) {
-      // Only process first chapter for testing
-      if (i > 0) {
-        break;
-      }
-      
-      const chapterToast = toast.loading(`Generating Video Content for chapter ${i + 1}...`);
+      const chapterToast = toast.loading(`Generating Video Content for chapter ${i + 1}/${chapters.length}...`);
       
       console.log(`Processing chapter ${i + 1}:`, chapters[i]);
       
@@ -150,11 +147,56 @@ const GetVideoContent = async (courseData: Course) => {
     toast.error("Failed to generate video content", {id: mainToast});
   }
 };
+    const fps= 30;
+    const slides= courseDetail?.chapterContentSlide??[];
+    const [durationsBySlideId, setDurationsBySlideId] = useState<Record<string, number> | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        
+        const run = async () => {
+            if (!slides || slides.length === 0) {
+                setDurationsBySlideId({});
+                return;
+            }
+            
+            const entries = await Promise.all(
+                slides.map(async (slide) => {
+                    try {
+                        // Skip if audioFileName is null, empty, or not a valid URL
+                        if (!slide?.audioFileName || slide.audioFileName.trim() === '') {
+                            console.log(`Skipping slide ${slide.slideId}: no audio file`);
+                            return [slide.slideId, fps * 6] as const; // Default 6 seconds
+                        }
+                        
+                        const audioData = await getAudioData(slide.audioFileName);
+                        const audioSec = audioData?.durationInSeconds;
+                        const frames = Math.max(1, Math.ceil((audioSec || 6) * fps));
+                        return [slide.slideId, frames] as const;
+                    } catch (error) {
+                        console.error(`Error getting audio data for slide ${slide.slideId}:`, error);
+                        // Return default duration if audio fetch fails
+                        return [slide.slideId, fps * 6] as const; // Default 6 seconds
+                    }
+                })
+            );
+            
+            if (!cancelled) {
+                setDurationsBySlideId(Object.fromEntries(entries));
+            }
+        };
+        
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [slides, fps]);
+   
 
   return (
     <div className='flex flex-col items-center '>
-        <CourseInfoCard course={courseDetail}/>
-        <CourseChapters course={courseDetail}/>
+        <CourseInfoCard course={courseDetail} durationsBySlideId={durationsBySlideId} />
+        <CourseChapters course={courseDetail} durationsBySlideId={durationsBySlideId} />
     </div>
   )
 }
