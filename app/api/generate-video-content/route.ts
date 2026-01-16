@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import axios from "axios";
 import cloudinary from "@/config/cloudinary";
+import FormData from "form-data";
 
 export async function POST(request: NextRequest) {
   console.log('=== API Route: generate-video-content called ===');
@@ -106,7 +107,6 @@ export async function POST(request: NextRequest) {
         .limit(1);
       
       if (existingChapter.length === 0) {
-        // Chapter doesn't exist, create it
         console.log('Chapter does not exist, creating it...');
         try {
           await db.insert(chapterTable).values({
@@ -119,11 +119,9 @@ export async function POST(request: NextRequest) {
           });
           console.log('✅ Chapter created successfully');
         } catch (insertError: any) {
-          // Check if it's a duplicate key error (race condition)
           if (insertError?.code === '23505' || insertError?.constraint?.includes('chapterId_unique')) {
             console.log('⚠️ Chapter was created by another request (race condition), continuing...');
           } else {
-            // Only throw if it's NOT a duplicate key error
             console.error('❌ Unexpected error creating chapter:', insertError);
             throw insertError;
           }
@@ -131,8 +129,6 @@ export async function POST(request: NextRequest) {
       } else {
         console.log('✅ Chapter already exists, skipping creation');
         
-        // Update the videoContent in the existing chapter
-        console.log('Updating existing chapter with new video content...');
         await db.update(chapterTable)
           .set({ 
             videoContent: videoContentJson,
@@ -168,6 +164,7 @@ export async function POST(request: NextRequest) {
             : { fullText: slide.narration || slide.text || "" },
           html: slide.html || "",
           revelData: Array.isArray(slide.revelData) ? slide.revelData : [],
+          captions: null, // Will be updated after caption generation
         };
         
         console.log(`Slide ${index + 1} record prepared:`, {
@@ -191,17 +188,16 @@ export async function POST(request: NextRequest) {
           successCount++;
         } catch (slideError: any) {
           console.error(`❌ Error inserting slide ${record.slideId}:`, slideError);
-          // Continue with other slides even if one fails
         }
       }
       
       console.log(`✅ ${successCount}/${slideRecords.length} slides inserted successfully`);
-      console.log(`✅ Successfully saved ${successCount} slides for chapter ${chapter.chapterId}`);
 
       console.log('🎵 Starting audio generation...');
 
       // Generate audio from actual video content
       const audioUrls: string[] = [];
+      const captionResults: any[] = [];
       
       for (let i = 0; i < slidesArray.length; i++) {
         const slide = slidesArray[i];
@@ -211,60 +207,76 @@ export async function POST(request: NextRequest) {
         const audioFileName = `audio-${chapter.chapterId}-${i}.mp3`;
         
         try {
-          console.log(`Generating audio ${i + 1}/${slidesArray.length}...`);
+          console.log(`\n🎬 Processing slide ${i + 1}/${slidesArray.length}...`);
           console.log(`Narration length: ${narration.length} characters`);
           
           // Skip if no narration text
           if (!narration || narration.trim() === "") {
             console.log(`⚠️ Skipping slide ${i + 1}: No narration text`);
             audioUrls.push('');
+            captionResults.push(null);
             continue;
           }
           
-          // Split long narration into chunks (Fonada limit is ~2000-3000 chars)
-          const textChunks = splitTextIntoChunks(narration, 2000);
+          // Split long narration into chunks (reduced to 300 to avoid 413 errors)
+          const textChunks = splitTextIntoChunks(narration, 300);
           console.log(`Split into ${textChunks.length} chunks for processing`);
           
           const audioBuffers: Buffer[] = [];
           
-          // Generate audio for each chunk
+          // Generate audio for each chunk with retry logic
           for (let chunkIndex = 0; chunkIndex < textChunks.length; chunkIndex++) {
-            console.log(`  Processing chunk ${chunkIndex + 1}/${textChunks.length} (${textChunks[chunkIndex].length} chars)...`);
+            const currentChunk = textChunks[chunkIndex];
+            console.log(`  Processing chunk ${chunkIndex + 1}/${textChunks.length} (${currentChunk.length} chars)...`);
             
-            // DEBUG: Log request details
-            const requestData = {
-              input: textChunks[chunkIndex],
-              voice: 'Vaanee',
-              language: 'English',
-            };
-            console.log('📦 Request payload size:', JSON.stringify(requestData).length, 'bytes');
-            console.log('📦 Narration text:', textChunks[chunkIndex].substring(0, 100) + '...');
-            console.log('📦 API Key exists:', !!process.env.FONDALAB_API_KEY);
-            console.log('📦 API Key length:', process.env.FONDALAB_API_KEY?.length || 0);
+            let chunkSuccess = false;
+            let retries = 0;
+            const maxRetries = 3;
             
-            const fonadaResult = await axios.post(
-              'https://api.fonada.ai/tts/generate-audio-large',
-              requestData,
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${process.env.FONDALAB_API_KEY}`
-                },
-                responseType: 'arraybuffer',
-                timeout: 120000
+            while (!chunkSuccess && retries < maxRetries) {
+              try {
+                const fonadaResult = await axios.post(
+                  'https://api.fonada.ai/tts/generate-audio-large',
+                  {
+                    input: currentChunk,
+                    voice: 'Vaanee',
+                    language: 'English',
+                  },
+                  {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${process.env.FONDALAB_API_KEY}`
+                    },
+                    responseType: 'arraybuffer',
+                    timeout: 120000
+                  }
+                );
+                
+                audioBuffers.push(Buffer.from(fonadaResult.data));
+                console.log(`  ✅ Chunk ${chunkIndex + 1} generated`);
+                chunkSuccess = true;
+                
+              } catch (chunkError: any) {
+                retries++;
+                if (axios.isAxiosError(chunkError) && chunkError.response?.status === 413) {
+                  if (retries < maxRetries) {
+                    console.log(`  ⚠️ Chunk ${chunkIndex + 1} failed with 413, retrying with exponential backoff (attempt ${retries}/${maxRetries})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+                  } else {
+                    throw new Error(`Failed to generate audio for chunk after ${maxRetries} retries: ${chunkError.message}`);
+                  }
+                } else {
+                  throw chunkError;
+                }
               }
-            );
+            }
             
-            audioBuffers.push(Buffer.from(fonadaResult.data));
-            console.log(`  ✅ Chunk ${chunkIndex + 1} generated (${fonadaResult.data.byteLength} bytes)`);
-            
-            // Add small delay between chunks to avoid rate limiting
             if (chunkIndex < textChunks.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 500));
             }
           }
           
-          // Merge all audio chunks into one buffer
+          // Merge audio buffers
           const finalAudioBuffer = audioBuffers.length > 1 
             ? mergeAudioBuffers(audioBuffers)
             : audioBuffers[0];
@@ -274,37 +286,61 @@ export async function POST(request: NextRequest) {
           // Upload to Cloudinary
           const audioUrl = await saveAudioToStorage(finalAudioBuffer, audioFileName);
           audioUrls.push(audioUrl);
-          console.log(`✅ Audio ${i + 1} uploaded successfully: ${audioUrl}`);
+          console.log(`✅ Audio uploaded: ${audioUrl}`);
           
-          // Update the slide with the audio URL
+          // 🆕 Generate captions using Groq Whisper
+          console.log('📝 Generating captions with Groq Whisper...');
+          let captions = null;
+          try {
+            captions = await generateCaptionsWithGroq(audioUrl);
+            console.log(`✅ Captions generated: ${captions.chunks.length} chunks`);
+            captionResults.push(captions);
+          } catch (captionError) {
+            console.error('⚠️ Failed to generate captions:', captionError);
+            captionResults.push(null);
+          }
+          
+          // Update the slide with audio URL and captions
           await db.update(chapterContentSlides)
-            .set({ audioFileName: audioUrl })
+            .set({ 
+              audioFileName: audioUrl,
+              captions: captions
+            })
             .where(eq(chapterContentSlides.slideId, slideRecords[i].slideId));
           
+          console.log(`✅ Slide ${i + 1} complete!\n`);
+          
         } catch (audioError) {
-          console.error(`❌ Error generating/uploading audio ${i + 1}:`, audioError);
-          if (axios.isAxiosError(audioError)) {
-            console.error('🔍 Axios Error Details:');
-            console.error('  Status:', audioError.response?.status);
-            console.error('  Status Text:', audioError.response?.statusText);
-            console.error('  Response Headers:', audioError.response?.headers);
-            console.error('  Response Data:', audioError.response?.data);
-            console.error('  Request URL:', audioError.config?.url);
-            console.error('  Request Method:', audioError.config?.method);
-            console.error('  Request Headers:', audioError.config?.headers);
+          console.error(`❌ Error processing slide ${i + 1}:`, audioError);
+          audioUrls.push('');
+          captionResults.push(null);
+          
+          // Update database to indicate failure - set audioFileName to null
+          try {
+            await db.update(chapterContentSlides)
+              .set({ 
+                audioFileName: null,
+                captions: null
+              })
+              .where(eq(chapterContentSlides.slideId, slideRecords[i].slideId));
+            console.log(`⚠️ Updated slide ${i + 1} database record to indicate audio generation failure`);
+          } catch (dbUpdateError) {
+            console.error(`❌ Failed to update database for slide ${i + 1}:`, dbUpdateError);
           }
-          audioUrls.push(''); // Add empty string to maintain array length
         }
       }
 
-      console.log(`✅ Audio generation complete: ${audioUrls.filter(url => url).length}/${slidesArray.length} successful`);
+      console.log(`\n✅ Processing complete!`);
+      console.log(`   Audio: ${audioUrls.filter(url => url).length}/${slidesArray.length} successful`);
+      console.log(`   Captions: ${captionResults.filter(c => c).length}/${slidesArray.length} successful`);
 
       return NextResponse.json({
         success: true,
         data: videoContentJson,
         savedSlides: successCount,
         audioUrls: audioUrls,
-        message: `Video content generated, ${successCount} slides saved, and ${audioUrls.filter(url => url).length} audio files uploaded successfully`
+        captions: captionResults,
+        message: `Complete! ${successCount} slides, ${audioUrls.filter(url => url).length} audio files, ${captionResults.filter(c => c).length} captions generated`
       });
 
     } catch (dbError) {
@@ -314,7 +350,6 @@ export async function POST(request: NextRequest) {
         console.error('Error stack:', dbError.stack);
       }
       
-      // Return the generated content even if DB save fails
       return NextResponse.json(
         { 
           error: "Database insertion failed", 
@@ -342,36 +377,94 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Upload audio buffer to Cloudinary and return the secure URL
+ * Generate captions using Groq Whisper API
+ * Takes a Cloudinary audio URL and returns timestamped captions
  */
-const saveAudioToStorage = async (audioBuffer: Buffer, audioFileName: string): Promise<string> => {
+const generateCaptionsWithGroq = async (audioUrl: string): Promise<any> => {
   try {
-    // Convert buffer to base64 data URI
-    const base64Audio = audioBuffer.toString('base64');
-    const dataURI = `data:audio/mp3;base64,${base64Audio}`;
-    
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(dataURI, {
-      resource_type: 'video', // Cloudinary treats audio as video resource type
-      folder: 'course-audio', // Optional: organize in folders
-      public_id: audioFileName.replace('.mp3', ''), // Remove extension as Cloudinary adds it
-      format: 'mp3',
-      overwrite: true,
+    // Download audio from Cloudinary
+    const audioResponse = await axios.get(audioUrl, {
+      responseType: 'arraybuffer',
+      timeout: 60000
     });
     
-    console.log('✅ Audio uploaded to Cloudinary:', result.secure_url);
-    return result.secure_url;
+    const audioBuffer = Buffer.from(audioResponse.data);
+    console.log(`   Downloaded audio (${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    
+    // Create FormData for Groq Whisper API
+    const formData = new FormData();
+    formData.append('file', audioBuffer, {
+      filename: 'audio.mp3',
+      contentType: 'audio/mp3',
+    });
+    formData.append('model', 'whisper-large-v3-turbo');
+    formData.append('response_format', 'verbose_json');
+    formData.append('timestamp_granularities[]', 'segment');
+    
+    // Call Groq Whisper API directly
+    const transcription = await axios.post(
+      'https://api.groq.com/openai/v1/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        timeout: 120000
+      }
+    );
+    
+    console.log(`   Transcription received`);
+    
+    // Format response for your video component
+    const segments = transcription.data.segments || [];
+    const chunks = segments.map((segment: any) => ({
+      text: segment.text.trim(),
+      timestamp: [segment.start, segment.end] as [number, number]
+    }));
+    
+    return {
+      fullText: transcription.data.text,
+      chunks: chunks
+    };
+    
   } catch (error) {
-    console.error('❌ Error uploading to Cloudinary:', error);
-    throw new Error(`Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('   Whisper API error:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('   Status:', error.response?.status);
+      console.error('   Response:', error.response?.data);
+    }
+    throw error;
   }
 };
 
 /**
- * Split text into chunks based on character limit
- * Tries to split at sentence boundaries for natural speech
+ * Upload audio buffer to Cloudinary
  */
-const splitTextIntoChunks = (text: string, maxChars: number = 2000): string[] => {
+const saveAudioToStorage = async (audioBuffer: Buffer, audioFileName: string): Promise<string> => {
+  try {
+    const base64Audio = audioBuffer.toString('base64');
+    const dataURI = `data:audio/mp3;base64,${base64Audio}`;
+    
+    const result = await cloudinary.uploader.upload(dataURI, {
+      resource_type: 'video',
+      folder: 'course-audio',
+      public_id: audioFileName.replace('.mp3', ''),
+      format: 'mp3',
+      overwrite: true,
+    });
+    
+    return result.secure_url;
+  } catch (error) {
+    console.error('❌ Cloudinary upload error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Split text into chunks
+ */
+const splitTextIntoChunks = (text: string, maxChars: number = 1500): string[] => {
   if (text.length <= maxChars) {
     return [text];
   }
@@ -387,7 +480,6 @@ const splitTextIntoChunks = (text: string, maxChars: number = 2000): string[] =>
       if (currentChunk) {
         chunks.push(currentChunk.trim());
       }
-      // If single sentence is too long, split by words
       if (sentence.length > maxChars) {
         const words = sentence.split(' ');
         let wordChunk = '';
@@ -418,7 +510,7 @@ const splitTextIntoChunks = (text: string, maxChars: number = 2000): string[] =>
 };
 
 /**
- * Merge multiple audio buffers into one
+ * Merge audio buffers
  */
 const mergeAudioBuffers = (buffers: Buffer[]): Buffer => {
   return Buffer.concat(buffers);
