@@ -194,9 +194,11 @@ const GetVideoContent = async (courseData: Course) => {
    
 
   return (
-    <div className='flex flex-col items-center '>
+    <div className='min-h-screen bg-black py-16 sm:py-24'>
+      <div className='max-w-[1200px] mx-auto px-6'>
         <CourseInfoCard course={courseDetail} durationsBySlideId={durationsBySlideId} />
         <CourseChapters course={courseDetail} durationsBySlideId={durationsBySlideId} />
+      </div>
     </div>
   )
 }
