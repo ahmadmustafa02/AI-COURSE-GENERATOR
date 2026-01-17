@@ -9,7 +9,9 @@
 
 **Transform any topic into a complete course with AI-powered learning**
 
-[Live Demo](https://your-deployment-url.vercel.app) · [Report Bug](https://github.com/ahmadmustafa02/AI-COURSE-GENERATOR/issues) · [Request Feature](https://github.com/ahmadmustafa02/AI-COURSE-GENERATOR/issues)
+
+[Live Demo](https://coursecraft-ai.vercel.app/) · [Report Bug](https://github.com/ahmadmustafa02/AI-COURSE-GENERATOR/issues) · [Request Feature](https://github.com/ahmadmustafa02/AI-COURSE-GENERATOR/issues)
+
 
 </div>
 
@@ -227,13 +229,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📸 Screenshots
 
 ### Home Page
-![Home Page](screenshots/home.png)
+
+
+![Home Page](<img width="1350" height="593" alt="image" src="https://github.com/user-attachments/assets/db2c5367-11f4-4db3-8c28-972bd3823c8e" />
+)
 
 ### Features Page
-![Features](screenshots/features.png)
+![Features](<img width="1348" height="591" alt="image" src="https://github.com/user-attachments/assets/b6067997-d4ae-4a00-b9cc-ff4e7276427e" />
+)
 
-### Course View
-![Course View](screenshots/course.png)
 
 ---
 
