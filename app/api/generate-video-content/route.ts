@@ -318,9 +318,9 @@ export async function POST(request: NextRequest) {
           // Update database to indicate failure - set audioFileName to null
           try {
             await db.update(chapterContentSlides)
-              .set({ 
-                audioFileName: null,
-                captions: null
+              .set({
+                audioFileName: undefined,
+                captions: undefined
               })
               .where(eq(chapterContentSlides.slideId, slideRecords[i].slideId));
             console.log(`⚠️ Updated slide ${i + 1} database record to indicate audio generation failure`);
