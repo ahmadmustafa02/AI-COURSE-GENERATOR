@@ -6,10 +6,12 @@ import { UserDetailContext } from '@/context/UserDetailContext';
 import Header from './_components/Header';
 import Footer from './_components/Footer';
 import ParticleBackground from './_components/ParticleBackground';
+import { usePathname } from 'next/navigation';
 
 function  Provider({children}:{children: React.ReactNode}) {
 
     const [userDetail,setUserDetail] = useState(null)
+    const pathname = usePathname();
 
     useEffect(()=>{
         CreateNewUser()
@@ -27,10 +29,17 @@ function  Provider({children}:{children: React.ReactNode}) {
 
   } 
 
+  // Show particles only on home, features, about, contact, and pricing pages
+  const shouldShowParticles = pathname === '/' || 
+                               pathname === '/features' || 
+                               pathname === '/about' || 
+                               pathname === '/contact' || 
+                               pathname === '/pricing';
+
   return (
     <UserDetailContext.Provider value={{userDetail,setUserDetail}}>
     <div className="relative min-h-screen flex flex-col">
-      <ParticleBackground />
+      {shouldShowParticles && <ParticleBackground />}
       <Header />
       <main className="flex-1">
         {children}
