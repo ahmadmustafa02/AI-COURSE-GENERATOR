@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios';
 import { UserDetailContext } from '@/context/UserDetailContext';
 import Header from './_components/Header';
+import Footer from './_components/Footer';
+import ParticleBackground from './_components/ParticleBackground';
 
 function  Provider({children}:{children: React.ReactNode}) {
 
@@ -27,10 +29,13 @@ function  Provider({children}:{children: React.ReactNode}) {
 
   return (
     <UserDetailContext.Provider value={{userDetail,setUserDetail}}>
-    <div className='max-w-7xl mx-auto'>
+    <div className="relative min-h-screen flex flex-col">
+      <ParticleBackground />
       <Header />
-      {children}
-
+      <main className="flex-1">
+        {children}
+      </main>
+      <Footer />
     </div>
      </UserDetailContext.Provider>
   )

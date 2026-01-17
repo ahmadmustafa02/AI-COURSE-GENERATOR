@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Course } from '@/type/CourseType';
-import { DotIcon } from 'lucide-react';
+import { DotIcon, BookOpenIcon } from 'lucide-react';
 import React, { useMemo } from 'react'
 import { Player } from '@remotion/player';
 import { CourseComposition } from './ChapterVideo';
@@ -45,70 +45,84 @@ const CourseChapters = ({course, durationsBySlideId}: Props) => {
   }
 
   return (
-    <div className='max-w-6xl mt-5 p-10 border rounded-3xl shadow w-full '>
-      <div className='flex justify-between items-center'>
-        <h2 className='font-bold text-2xl'>Course Preview</h2>
-        <h2 className='text-sm text-muted-foreground'>Chapters</h2>
-
+    <div className='mt-24'>
+      <div className='mb-16 animate-fade-in'>
+        <div className='inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6 w-fit'>
+          <BookOpenIcon className='h-3.5 w-3.5 text-primary' />
+          <span className='text-[13px] font-medium text-white/80'>Course Chapters</span>
+        </div>
+        <h2 className='text-4xl sm:text-5xl font-semibold mb-4 tracking-[-0.03em]'>Explore the Course</h2>
+        <p className='text-[17px] text-white/60'>Dive deep into each chapter and master the content</p>
       </div>
 
-      <div className='mt-10'>
+      <div className='space-y-6'>
         {course?.courseLayout?.chapters.map((chapter, index) => (
-        <Card className='mv-5' key={index}>
-          <CardHeader>
-            <div className='flex gap-3 items-center'>
-                          <h2 className='p-2 bg-primary/40 inline-flex h-10 w-10 text-center rounded-2xl justify-center'>{index + 1}</h2>
-                         <CardTitle className='md:text-xl text-base '>
-                          {chapter.chapterTitle}
-                         </CardTitle>
+        <Card 
+          className='group hover-lift transition-all duration-200 border-white/6 bg-white/3 backdrop-blur-xl hover:bg-white/5 hover:border-white/10 animate-slide-up' 
+          key={index}
+          style={{ animationDelay: `${index * 0.1}s` }}
+        >
+          <CardHeader className="pb-6">
+            <div className='flex gap-4 items-start'>
+              <div className='flex-shrink-0 w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[17px] font-semibold text-primary'>
+                {index + 1}
+              </div>
+              <div className='flex-1'>
+                <CardTitle className='text-[24px] font-semibold tracking-tight text-white'>
+                  {chapter.chapterTitle}
+                </CardTitle>
+              </div>
             </div>
-            
-
           </CardHeader>
 
           <CardContent>
-
-        <div className='grid grid-cols-2 gap-5'>
-
-            <div>
-            {chapter?.subContent.map((content, index) => (
-              <div className='flex gap-2 items-center mt-2' key={index}>
-               <DotIcon className='h-2 w-5 text-primary '/>
-               <h2>{content}</h2>
+            <div className='grid grid-cols-1 lg:grid-cols-2 gap-10'>
+              <div className='space-y-4'>
+                <h3 className='text-[13px] font-semibold text-white/50 uppercase tracking-wide mb-5'>What You'll Learn</h3>
+                {chapter?.subContent.map((content, index) => (
+                  <div className='flex gap-3 items-start' key={index}>
+                    <div className='flex-shrink-0 mt-1'>
+                      <DotIcon className='h-5 w-5 text-primary'/>
+                    </div>
+                    <p className='text-[15px] text-white/70 leading-relaxed'>{content}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-            </div>
       
-
-        <div>
-              {getChapterSlides(chapter.chapterId).length > 0 ? (
-                <Player className='border-2 border-grey/10 rounded-2xl'
-                                component={CourseComposition}
-                                 inputProps={{
-                  //@ts-ignore
-                   slides: transformSlides(getChapterSlides(chapter.chapterId)),
-                   durationsBySlideId: durationsBySlideId??{}
-
-                  }
-                   }
-                               durationInFrames={GetChapterDurationInFrame(chapter.chapterId)}
-                               compositionWidth={1280}
-                               compositionHeight={720}
-                               fps={30}
-                               controls={true}
-                               style={{
-                                   width: '80%',
-                                   height: 'auto',
-                                   aspectRatio: '16/9'
-                               }}
-                               />
-              ) : (
-                <div className='border-2 border-grey/10 rounded-2xl flex items-center justify-center aspect-video bg-muted/10'>
-                  <p className='text-muted-foreground'>No slides available for this chapter</p>
-                </div>
-              )}
-        </div>
-        </div>
+              <div className="relative">
+                {getChapterSlides(chapter.chapterId).length > 0 ? (
+                  <div className="relative">
+                    <div className="rounded-[20px] overflow-hidden border border-white/6 bg-white/3 backdrop-blur-xl">
+                      <Player 
+                        className='w-full'
+                        component={CourseComposition}
+                        inputProps={{
+                        //@ts-ignore
+                        slides: transformSlides(getChapterSlides(chapter.chapterId)),
+                        durationsBySlideId: durationsBySlideId??{}
+                        }}
+                        durationInFrames={GetChapterDurationInFrame(chapter.chapterId)}
+                        compositionWidth={1280}
+                        compositionHeight={720}
+                        fps={30}
+                        controls={true}
+                        style={{
+                            width: '100%',
+                            aspectRatio: '16/9'
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className='rounded-[20px] border border-white/6 bg-white/3 backdrop-blur-xl aspect-video flex items-center justify-center'>
+                    <div className="text-center">
+                      <p className='text-white/60 font-medium text-[15px]'>No slides available</p>
+                      <p className='text-[14px] text-white/40 mt-1'>Content will appear here</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
          

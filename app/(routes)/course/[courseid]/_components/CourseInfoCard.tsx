@@ -40,51 +40,72 @@ function CourseInfoCard ({course, durationsBySlideId}: Props) {
     }, [durationsBySlideId, slides, fps]);
 
   return (
-    <div>
-        <div className='p-8 grid grid-cols-1 md:grid-cols-2 gap-5'>
-            <div className=''>
-                <h2 className='flex gap-2 p-1 px-2 border rounded-2xl inline-flex'><Sparkle className="" /> Course Preview</h2>
-                <h2 className='text-3xl font-bold mt-4 '>{course?.courseName}</h2>
-                <p className='text-lg text-muted-foreground mt-3'>{course?.courseLayout?.courseDescription}</p>
-            <div className='mt-5 flex gap-5'>
-                <h2 className='px-3 p-2 border rounded-4xl flex gap-2 items-center inline-flex'><ChartNoAxesColumnIncreasing className='text-sky-400'/>{course?.courseLayout?.level}</h2>
-                <h2 className='px-3 p-2 border rounded-4xl flex gap-2 items-center inline-flex'><BookOpenIcon className='text-green-400'/>{course?.courseLayout?.totalChapters} Chapters</h2>
-
+    <div className="w-full">
+        <div className='py-8 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16'>
+            <div className='space-y-8 animate-fade-in'>
+                <div className='inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 w-fit'>
+                    <Sparkle className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-[13px] font-medium text-white/80">Course Preview</span>
+                </div>
+                <h1 className='text-5xl sm:text-6xl font-semibold leading-[1.1] tracking-[-0.03em] text-white'>
+                    {course?.courseName}
+                </h1>
+                <p className='text-[18px] text-white/60 leading-relaxed'>
+                    {course?.courseLayout?.courseDescription}
+                </p>
+                <div className='flex flex-wrap gap-3'>
+                    {course?.courseLayout?.level && (
+                        <div className='px-4 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 backdrop-blur-xl'>
+                            <ChartNoAxesColumnIncreasing className='h-4 w-4 text-primary'/>
+                            <span className='text-[14px] font-medium text-white/80'>{course.courseLayout.level}</span>
+                        </div>
+                    )}
+                    {course?.courseLayout?.totalChapters && (
+                        <div className='px-4 py-2 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 backdrop-blur-xl'>
+                            <BookOpenIcon className='h-4 w-4 text-primary'/>
+                            <span className='text-[14px] font-medium text-white/80'>{course.courseLayout.totalChapters} Chapters</span>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            </div>
-
-            <div>
+            <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
                 {!durationsBySlideId ? (
-                    <div className='border-2 border-grey/10 rounded-2xl flex items-center justify-center aspect-video bg-muted/10'>
-                        <div className='text-center'>
-                            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2'></div>
-                            <p className='text-muted-foreground'>Loading video player...</p>
+                    <div className='relative rounded-[20px] overflow-hidden border border-white/6 bg-white/3 backdrop-blur-xl aspect-video flex items-center justify-center'>
+                        <div className='relative text-center z-10'>
+                            <div className='animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-4'></div>
+                            <p className='text-white/60 font-medium text-[15px]'>Loading video player...</p>
                         </div>
                     </div>
                 ) : transformedSlides.length > 0 ? (
-                    <Player className='border-2 border-grey/10 rounded-2xl'
-                     component={CourseComposition}
-                     inputProps={{
-                    //@ts-ignore
-                     slides: transformedSlides,
-                     durationsBySlideId: durationsBySlideId || {}
-
-                    }
-                     }
-                    durationInFrames={Math.max(30, durationInFrames)}
-                    compositionWidth={1280}
-                    compositionHeight={720}
-                    fps={30}
-                    controls={true}
-                    style={{
-                        width: '100%',
-                        aspectRatio: '16/9'
-                    }}
-                    />
+                    <div className="relative">
+                        <div className="rounded-[20px] overflow-hidden border border-white/6 bg-white/3 backdrop-blur-xl">
+                            <Player 
+                                className='w-full'
+                                component={CourseComposition}
+                                inputProps={{
+                                //@ts-ignore
+                                slides: transformedSlides,
+                                durationsBySlideId: durationsBySlideId || {}
+                                }}
+                                durationInFrames={Math.max(30, durationInFrames)}
+                                compositionWidth={1280}
+                                compositionHeight={720}
+                                fps={30}
+                                controls={true}
+                                style={{
+                                    width: '100%',
+                                    aspectRatio: '16/9'
+                                }}
+                            />
+                        </div>
+                    </div>
                 ) : (
-                    <div className='border-2 border-grey/10 rounded-2xl flex items-center justify-center aspect-video bg-muted/10'>
-                        <p className='text-muted-foreground'>No slides available</p>
+                    <div className='rounded-[20px] border border-white/6 bg-white/3 backdrop-blur-xl aspect-video flex items-center justify-center'>
+                        <div className="text-center">
+                            <p className='text-white/60 font-medium text-[15px]'>No slides available</p>
+                            <p className='text-[14px] text-white/40 mt-2'>Generate content to see preview</p>
+                        </div>
                     </div>
                 )}
             </div>
