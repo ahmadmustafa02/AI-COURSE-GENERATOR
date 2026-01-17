@@ -114,8 +114,8 @@ export async function POST(request: NextRequest) {
             chapterId: chapter.chapterId,
             chapterTitle: chapter.chapterTitle || 'Untitled Chapter',
             videoContent: videoContentJson,
-            captions: null,
-            audioFileUrl: null,
+            captions: undefined,
+            audioFileUrl: undefined,
           });
           console.log('✅ Chapter created successfully');
         } catch (insertError: any) {
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
             : { fullText: slide.narration || slide.text || "" },
           html: slide.html || "",
           revelData: Array.isArray(slide.revelData) ? slide.revelData : [],
-          captions: null, // Will be updated after caption generation
+          captions: undefined, // Will be updated after caption generation
         };
         
         console.log(`Slide ${index + 1} record prepared:`, {
